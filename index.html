@@ -1,613 +1,494 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Pencil, Check } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>Habit Ledger</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
 
-const DEFAULT_SCHEMA = {
-  sections: [
-    {
-      id: 'habits',
-      title: 'Habits',
-      items: [
-        { id: 'coffee', label: 'Coffee', type: 'number', unit: 'cups' },
-        { id: 'cigarettes', label: 'Cigarettes', type: 'number' },
-        { id: 'bass', label: 'Bass practice', type: 'toggle' },
-        { id: 'assimil', label: 'Assimil', type: 'toggle' },
-        { id: 'lingvist', label: 'Lingvist', type: 'toggle' },
-        { id: 'reading', label: 'Reading', type: 'number', unit: 'pages' },
-        { id: 'workout', label: 'Workout', type: 'toggle' },
-      ],
-    },
-    {
-      id: 'supplements',
-      title: 'Supplements',
-      items: [
-        { id: 'probiotics', label: 'Probiotics', type: 'toggle' },
-        { id: 'vitaminC', label: 'Vitamin C', type: 'toggle' },
-        { id: 'vitaminD', label: 'Vitamin D', type: 'toggle' },
-        { id: 'zinc', label: 'Zinc', type: 'toggle' },
-        { id: 'fishOil', label: 'Fish oil', type: 'toggle' },
-      ],
-    },
-  ],
-};
+  :root {
+    --bg: #111E19;
+    --bg-card: #192823;
+    --hairline: rgba(201,166,105,0.16);
+    --hairline-strong: rgba(201,166,105,0.32);
+    --amber: #C68B3E;
+    --amber-bright: #E0A94F;
+    --parchment: #EDE6D6;
+    --muted: #8FA093;
+    --muted-dark: #5E6E63;
+    --rust: #B0614B;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; background: var(--bg); color: var(--parchment); font-family:'Inter',sans-serif; }
+  body { padding-bottom: env(safe-area-inset-bottom); -webkit-text-size-adjust: 100%; }
+  button, input, select { font-family: inherit; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  ::selection { background: var(--amber); color: var(--bg); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-const COLORS = {
-  bg: '#111E19',
-  bgCard: '#192823',
-  hairline: 'rgba(201,166,105,0.16)',
-  hairlineStrong: 'rgba(201,166,105,0.32)',
-  amber: '#C68B3E',
-  amberBright: '#E0A94F',
-  parchment: '#EDE6D6',
-  muted: '#8FA093',
-  mutedDark: '#5E6E63',
-  rust: '#B0614B',
-};
+  .wrap { max-width: 480px; margin: 0 auto; padding: 28px 20px 80px; }
+  .eyebrow { font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.18em; color:var(--amber); text-transform:uppercase; margin-bottom:6px; }
+  .title { font-family:'Fraunces',serif; font-size:27px; font-weight:600; line-height:1.1; }
+  .header-row { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:4px; gap: 10px; }
+  .btn-pill { display:flex; align-items:center; gap:6px; border-radius:999px; padding:7px 12px; font-size:12px; font-weight:500; cursor:pointer; border:1px solid var(--hairline); background:transparent; color:var(--muted); margin-top:4px; flex-shrink: 0; }
+  .btn-pill.active { background:var(--amber); color:var(--bg); border-color:var(--amber); }
+  .tabs { display:flex; gap:4px; margin-top:18px; margin-bottom:16px; background:rgba(143,160,147,0.08); padding:3px; border-radius:12px; width:fit-content; }
+  .tab { padding:6px 14px; border-radius:9px; border:none; cursor:pointer; background:transparent; color:var(--muted); font-size:12.5px; font-weight:500; text-transform:capitalize; }
+  .tab.active { background:var(--amber); color:var(--bg); }
+  .nav-row { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+  .nav-btn { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(143,160,147,0.1); border:1px solid var(--hairline); cursor:pointer; color:var(--parchment); font-size:16px; }
+  .nav-btn:disabled { color: var(--muted-dark); cursor:default; }
+  .jump { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--amber); background:transparent; border:none; cursor:pointer; letter-spacing:0.05em; }
+  .strip { display:flex; align-items:flex-end; gap:4px; height:40px; margin-bottom:28px; border-bottom:1px solid var(--hairline); padding-bottom:10px; }
+  .strip-bar-btn { flex:1; height:100%; display:flex; align-items:flex-end; background:transparent; border:none; cursor:pointer; padding:0; }
+  .strip-bar { width:100%; border-radius:2px; transition: all .2s ease; }
+  .section { margin-bottom:20px; }
+  .section-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; padding-left:2px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.14em; color:var(--muted); text-transform:uppercase; }
+  .card { background:var(--bg-card); border-radius:16px; border:1px solid var(--hairline); overflow:hidden; }
+  .item-row { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--hairline); }
+  .item-row:last-child { border-bottom:none; }
+  .item-label { font-size:14.5px; font-weight:500; }
+  .toggle { width:46px; height:26px; border-radius:999px; position:relative; cursor:pointer; border:1px solid var(--hairline); background:rgba(143,160,147,0.18); flex-shrink:0; padding: 0; }
+  .toggle.on { background:var(--amber); border-color:var(--amber-bright); }
+  .toggle .thumb { width:18px; height:18px; border-radius:50%; background:var(--parchment); position:absolute; top:3px; left:3px; transition:left .15s ease; }
+  .toggle.on .thumb { background:var(--bg); left:24px; }
+  .stepper { display:flex; align-items:center; gap:10px; }
+  .step-btn { width:26px; height:26px; border-radius:50%; border:1px solid var(--hairline); background:rgba(143,160,147,0.1); color:var(--parchment); font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .step-val { font-family:'IBM Plex Mono',monospace; font-size:15px; min-width:40px; text-align:center; }
+  .step-unit { font-size:10px; color:var(--muted); margin-left:3px; }
+  .remove-btn { background:none; border:none; color:var(--rust); cursor:pointer; display:flex; align-items:center; padding:0; font-size: 13px; }
+  .add-form { padding:12px 16px; border-top:1px solid var(--hairline); display:flex; flex-direction:column; gap:8px; }
+  .input { flex:1; background:rgba(0,0,0,0.2); border:1px solid var(--hairline); border-radius:8px; padding:8px 10px; color:var(--parchment); font-size:13px; outline:none; }
+  .add-btn { width:34px; height:34px; border-radius:8px; background:var(--amber); border:none; color:var(--bg); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-size: 16px; }
+  .dashed-btn { width:100%; padding:12px; border-radius:14px; border:1px dashed var(--hairline-strong); background:transparent; color:var(--muted); font-size:13px; cursor:pointer; }
+  .week-header, .week-row { display:grid; grid-template-columns: 58px repeat(7,1fr) 30px; gap:4px; align-items:center; }
+  .week-header { margin-bottom:10px; padding-left:2px; }
+  .week-header .wd { text-align:center; }
+  .week-header .wd .name { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+  .week-header .wd .num { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--parchment); }
+  .week-header .wd.today .name { color: var(--amber); }
+  .week-header .wd.today .num { color: var(--amber-bright); font-weight:600; }
+  .week-sum { text-align:center; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); }
+  .week-row { padding:10px 12px; border-bottom:1px solid var(--hairline); }
+  .week-row:last-child { border-bottom:none; }
+  .week-label { font-size:12px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .week-cell-btn { background:transparent; border:none; cursor:pointer; display:flex; justify-content:center; align-items:center; padding:4px; }
+  .week-cell-btn:disabled { cursor: default; opacity: 0.4; }
+  .week-dot { width:9px; height:9px; border-radius:50%; border:1.4px solid var(--hairline-strong); }
+  .week-dot.on { background:var(--amber); border-color:var(--amber); }
+  .week-num { font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--muted-dark); }
+  .week-num.has { color:var(--parchment); }
+  .week-total { font-family:'IBM Plex Mono',monospace; font-size:11px; text-align:center; color:var(--amber); }
+  .month-dow { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:6px; }
+  .month-dow div { text-align:center; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:0.05em; }
+  .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .month-cell { aspect-ratio:1; border-radius:9px; border:1px solid var(--hairline); display:flex; align-items:flex-start; justify-content:flex-start; padding:5px; cursor:pointer; }
+  .month-cell .num { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--parchment); }
+  .month-cell.dim .num { color: var(--muted-dark); }
+  .month-cell.today { border-color:var(--amber-bright); border-width:1.5px; }
+  .month-cell:disabled { cursor:default; }
+  .error-msg { font-size:12px; color:var(--rust); margin-bottom:16px; }
+  .loading { min-height:100vh; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; color:var(--muted); font-size:13px; letter-spacing:0.05em; }
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">loading ledger…</div></div>
 
-const FONT_DISPLAY = "'Fraunces', serif";
-const FONT_MONO = "'IBM Plex Mono', monospace";
-const FONT_UI = "'Inter', sans-serif";
+<script>
+(function () {
+  'use strict';
 
-const navBtnStyle = {
-  width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-  background: 'rgba(143,160,147,0.1)', border: `1px solid ${COLORS.hairline}`, cursor: 'pointer',
-};
+  var DEFAULT_SCHEMA = {
+    sections: [
+      {
+        id: 'habits',
+        title: 'Habits',
+        items: [
+          { id: 'coffee', label: 'Coffee', type: 'number', unit: 'cups' },
+          { id: 'cigarettes', label: 'Cigarettes', type: 'number' },
+          { id: 'bass', label: 'Bass practice', type: 'toggle' },
+          { id: 'assimil', label: 'Assimil', type: 'toggle' },
+          { id: 'lingvist', label: 'Lingvist', type: 'toggle' },
+          { id: 'reading', label: 'Reading', type: 'number', unit: 'pages' },
+          { id: 'workout', label: 'Workout', type: 'toggle' }
+        ]
+      },
+      {
+        id: 'supplements',
+        title: 'Supplements',
+        items: [
+          { id: 'probiotics', label: 'Probiotics', type: 'toggle' },
+          { id: 'vitaminC', label: 'Vitamin C', type: 'toggle' },
+          { id: 'vitaminD', label: 'Vitamin D', type: 'toggle' },
+          { id: 'zinc', label: 'Zinc', type: 'toggle' },
+          { id: 'fishOil', label: 'Fish oil', type: 'toggle' }
+        ]
+      }
+    ]
+  };
 
-const stepBtnStyle = {
-  width: 26, height: 26, borderRadius: '50%', border: `1px solid ${COLORS.hairline}`,
-  background: 'rgba(143,160,147,0.1)', color: COLORS.parchment, fontSize: 16, lineHeight: 1,
-  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-};
+  var SCHEMA_KEY = 'habitledger.schema.v1';
+  var ENTRIES_KEY = 'habitledger.entries.v1';
 
-const inputStyle = {
-  flex: 1, background: 'rgba(0,0,0,0.2)', border: `1px solid ${COLORS.hairline}`, borderRadius: 8,
-  padding: '8px 10px', color: COLORS.parchment, fontSize: 13, fontFamily: FONT_UI, outline: 'none',
-};
-
-const addBtnStyle = {
-  width: 34, height: 34, borderRadius: 8, background: COLORS.amber, border: 'none',
-  color: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
-};
-
-function dateKey(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function displayDate(d, today) {
-  const isToday = dateKey(d) === dateKey(today);
-  const isYesterday = dateKey(d) === dateKey(new Date(today.getTime() - 86400000));
-  const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-  const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (isToday) return `Today · ${md}`;
-  if (isYesterday) return `Yesterday · ${md}`;
-  return `${weekday} · ${md}`;
-}
-
-function addDays(d, n) {
-  const date = new Date(d);
-  date.setDate(date.getDate() + n);
-  return date;
-}
-
-function addMonths(d, n) {
-  const date = new Date(d);
-  date.setMonth(date.getMonth() + n);
-  return date;
-}
-
-function startOfWeek(d) {
-  const date = new Date(d);
-  const day = date.getDay(); // 0 Sun .. 6 Sat
-  const diff = (day + 6) % 7; // days since Monday
-  date.setDate(date.getDate() - diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function isSameDay(a, b) {
-  return dateKey(a) === dateKey(b);
-}
-
-function isSameMonth(a, b) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
-}
-
-function monthMatrix(d) {
-  const first = new Date(d.getFullYear(), d.getMonth(), 1);
-  const start = startOfWeek(first);
-  const weeks = [];
-  let cur = start;
-  for (let w = 0; w < 6; w++) {
-    const week = [];
-    for (let i = 0; i < 7; i++) {
-      week.push(cur);
-      cur = addDays(cur, 1);
+  function loadJSON(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return fallback;
+  }
+  function saveJSON(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (e) {
+      return false;
     }
-    weeks.push(week);
-  }
-  while (weeks.length > 4 && weeks[weeks.length - 1].every((day) => !isSameMonth(day, d))) {
-    weeks.pop();
-  }
-  return weeks;
-}
-
-export default function HabitLedger() {
-  const [schema, setSchema] = useState(DEFAULT_SCHEMA);
-  const [entries, setEntries] = useState({});
-  const [loaded, setLoaded] = useState(false);
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [viewMode, setViewMode] = useState('day'); // 'day' | 'week' | 'month'
-  const [editMode, setEditMode] = useState(false);
-  const [addingSection, setAddingSection] = useState(false);
-  const [newSectionTitle, setNewSectionTitle] = useState('');
-  const [draftItem, setDraftItem] = useState({});
-  const [error, setError] = useState(null);
-
-  const today = new Date();
-
-  useEffect(() => {
-    (async () => {
-      let s = DEFAULT_SCHEMA;
-      try {
-        const r = await window.storage.get('schema', false);
-        if (r && r.value) s = JSON.parse(r.value);
-      } catch (e) { /* no schema saved yet */ }
-      let e = {};
-      try {
-        const r2 = await window.storage.get('entries', false);
-        if (r2 && r2.value) e = JSON.parse(r2.value);
-      } catch (err) { /* no entries saved yet */ }
-      setSchema(s);
-      setEntries(e);
-      setLoaded(true);
-    })();
-  }, []);
-
-  const persistSchema = useCallback(async (next) => {
-    setSchema(next);
-    try {
-      await window.storage.set('schema', JSON.stringify(next), false);
-    } catch (e) { setError('Could not save that change.'); }
-  }, []);
-
-  const persistEntries = useCallback(async (next) => {
-    setEntries(next);
-    try {
-      await window.storage.set('entries', JSON.stringify(next), false);
-    } catch (e) { setError('Could not save that change.'); }
-  }, []);
-
-  const dayKey = dateKey(currentDate);
-  const dayEntry = entries[dayKey] || {};
-
-  function updateValue(itemId, value) {
-    persistEntries({ ...entries, [dayKey]: { ...dayEntry, [itemId]: value } });
   }
 
-  function toggleItem(itemId) {
-    updateValue(itemId, !dayEntry[itemId]);
+  var state = {
+    schema: loadJSON(SCHEMA_KEY, DEFAULT_SCHEMA),
+    entries: loadJSON(ENTRIES_KEY, {}),
+    currentDate: new Date(),
+    viewMode: 'day',
+    editMode: false,
+    addingSection: false,
+    newSectionTitle: '',
+    draftItem: {},
+    error: null
+  };
+
+  function saveSchema() {
+    var ok = saveJSON(SCHEMA_KEY, state.schema);
+    state.error = ok ? null : 'Could not save that change.';
+  }
+  function saveEntries() {
+    var ok = saveJSON(ENTRIES_KEY, state.entries);
+    state.error = ok ? null : 'Could not save that change.';
   }
 
-  function stepNumber(itemId, delta) {
-    const cur = Number(dayEntry[itemId]) || 0;
-    updateValue(itemId, Math.max(0, cur + delta));
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
-  function goDay(delta) {
-    setCurrentDate(addDays(currentDate, delta));
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function addMonths(d, n) { var x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
+  function startOfWeek(d) {
+    var x = new Date(d);
+    var day = x.getDay();
+    var diff = (day + 6) % 7;
+    x.setDate(x.getDate() - diff);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+  function isSameDay(a, b) { return dateKey(a) === dateKey(b); }
+  function isSameMonth(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth(); }
+  function displayDate(d, t) {
+    if (isSameDay(d, t)) return 'Today · ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (isSameDay(d, addDays(t, -1))) return 'Yesterday · ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-US', { weekday: 'short' }) + ' · ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  function monthMatrix(d) {
+    var first = new Date(d.getFullYear(), d.getMonth(), 1);
+    var start = startOfWeek(first);
+    var weeks = [];
+    var cur = start;
+    for (var w = 0; w < 6; w++) {
+      var week = [];
+      for (var i = 0; i < 7; i++) { week.push(cur); cur = addDays(cur, 1); }
+      weeks.push(week);
+    }
+    while (weeks.length > 4 && weeks[weeks.length - 1].every(function (day) { return !isSameMonth(day, d); })) {
+      weeks.pop();
+    }
+    return weeks;
   }
 
-  function removeItem(sectionId, itemId) {
-    persistSchema({
-      ...schema,
-      sections: schema.sections.map((s) =>
-        s.id === sectionId ? { ...s, items: s.items.filter((i) => i.id !== itemId) } : s
-      ),
-    });
+  function today() { return new Date(); }
+  function dayEntry() { return state.entries[dateKey(state.currentDate)] || {}; }
+  function allItems() {
+    var items = [];
+    state.schema.sections.forEach(function (s) { items = items.concat(s.items); });
+    return items;
   }
-
-  function removeSection(sectionId) {
-    persistSchema({ ...schema, sections: schema.sections.filter((s) => s.id !== sectionId) });
-  }
-
-  function addItem(sectionId) {
-    const draft = draftItem[sectionId];
-    if (!draft || !draft.label || !draft.label.trim()) return;
-    const id = draft.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + Date.now().toString(36);
-    const item = { id, label: draft.label.trim(), type: draft.type || 'toggle' };
-    if (item.type === 'number' && draft.unit) item.unit = draft.unit.trim();
-    persistSchema({
-      ...schema,
-      sections: schema.sections.map((s) =>
-        s.id === sectionId ? { ...s, items: [...s.items, item] } : s
-      ),
-    });
-    setDraftItem((d) => ({ ...d, [sectionId]: { label: '', type: 'toggle', unit: '' } }));
-  }
-
-  function addSection() {
-    if (!newSectionTitle.trim()) return;
-    const id = newSectionTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + Date.now().toString(36);
-    persistSchema({ ...schema, sections: [...schema.sections, { id, title: newSectionTitle.trim(), items: [] }] });
-    setNewSectionTitle('');
-    setAddingSection(false);
-  }
-
-  const strip = Array.from({ length: 14 }, (_, i) => addDays(today, -(13 - i)));
-
-  const allItems = schema.sections.flatMap((s) => s.items);
-
   function completionRatio(d) {
-    const k = dateKey(d);
-    const e = entries[k];
-    if (!e || allItems.length === 0) return 0;
-    let filled = 0;
-    allItems.forEach((it) => {
-      if (it.type === 'toggle' && e[it.id]) filled += 1;
-      if (it.type === 'number' && Number(e[it.id]) > 0) filled += 1;
+    var e = state.entries[dateKey(d)];
+    var items = allItems();
+    if (!e || items.length === 0) return 0;
+    var filled = 0;
+    items.forEach(function (it) {
+      if (it.type === 'toggle' && e[it.id]) filled++;
+      if (it.type === 'number' && Number(e[it.id]) > 0) filled++;
     });
-    return filled / allItems.length;
+    return filled / items.length;
   }
 
-  if (!loaded) {
-    return (
-      <div style={{ background: COLORS.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontFamily: FONT_MONO, color: COLORS.muted, fontSize: 13, letterSpacing: '0.05em' }}>loading ledger…</p>
-      </div>
-    );
+  // ---- actions (exposed on window for inline handlers) ----
+  window.updateValue = function (itemId, value) {
+    var k = dateKey(state.currentDate);
+    state.entries[k] = Object.assign({}, state.entries[k] || {}, {});
+    state.entries[k][itemId] = value;
+    saveEntries();
+    render();
+  };
+  window.toggleItem = function (itemId) {
+    var cur = dayEntry()[itemId];
+    window.updateValue(itemId, !cur);
+  };
+  window.stepNumber = function (itemId, delta) {
+    var cur = Number(dayEntry()[itemId]) || 0;
+    window.updateValue(itemId, Math.max(0, cur + delta));
+  };
+  window.setViewMode = function (mode) { state.viewMode = mode; state.editMode = false; render(); };
+  window.goPrev = function () {
+    if (state.viewMode === 'day') state.currentDate = addDays(state.currentDate, -1);
+    else if (state.viewMode === 'week') state.currentDate = addDays(state.currentDate, -7);
+    else state.currentDate = addMonths(state.currentDate, -1);
+    render();
+  };
+  window.goNext = function () {
+    var t = today();
+    if (state.viewMode === 'day') { if (!isSameDay(state.currentDate, t)) state.currentDate = addDays(state.currentDate, 1); }
+    else if (state.viewMode === 'week') { if (!isSameDay(startOfWeek(state.currentDate), startOfWeek(t))) state.currentDate = addDays(state.currentDate, 7); }
+    else { if (!isSameMonth(state.currentDate, t)) state.currentDate = addMonths(state.currentDate, 1); }
+    render();
+  };
+  window.jumpToday = function () { state.currentDate = new Date(); render(); };
+  window.setCurrentDateYMD = function (y, m, d) { state.currentDate = new Date(y, m, d); render(); };
+  window.jumpToDayFromGrid = function (dstr) {
+    var parts = dstr.split('-').map(Number);
+    var d = new Date(parts[0], parts[1] - 1, parts[2]);
+    if (d > today()) return;
+    state.currentDate = d;
+    state.viewMode = 'day';
+    render();
+  };
+  window.toggleEdit = function () { state.editMode = !state.editMode; render(); };
+  window.removeItem = function (sectionId, itemId) {
+    state.schema.sections = state.schema.sections.map(function (s) {
+      if (s.id !== sectionId) return s;
+      return Object.assign({}, s, { items: s.items.filter(function (i) { return i.id !== itemId; }) });
+    });
+    saveSchema(); render();
+  };
+  window.removeSection = function (sectionId) {
+    state.schema.sections = state.schema.sections.filter(function (s) { return s.id !== sectionId; });
+    saveSchema(); render();
+  };
+  window.updateDraftLabel = function (sectionId, val) {
+    state.draftItem[sectionId] = Object.assign({ type: 'toggle' }, state.draftItem[sectionId], { label: val });
+  };
+  window.updateDraftType = function (sectionId, val) {
+    state.draftItem[sectionId] = Object.assign({ label: '' }, state.draftItem[sectionId], { type: val });
+    render();
+  };
+  window.updateDraftUnit = function (sectionId, val) {
+    state.draftItem[sectionId] = Object.assign({}, state.draftItem[sectionId], { unit: val });
+  };
+  window.addItem = function (sectionId) {
+    var draft = state.draftItem[sectionId];
+    if (!draft || !draft.label || !draft.label.trim()) return;
+    var id = draft.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + Date.now().toString(36);
+    var item = { id: id, label: draft.label.trim(), type: draft.type || 'toggle' };
+    if (item.type === 'number' && draft.unit) item.unit = draft.unit.trim();
+    state.schema.sections = state.schema.sections.map(function (s) {
+      if (s.id !== sectionId) return s;
+      return Object.assign({}, s, { items: s.items.concat([item]) });
+    });
+    saveSchema();
+    state.draftItem[sectionId] = { label: '', type: 'toggle', unit: '' };
+    render();
+  };
+  window.toggleAddingSection = function () { state.addingSection = !state.addingSection; render(); };
+  window.updateNewSectionTitle = function (val) { state.newSectionTitle = val; };
+  window.addSection = function () {
+    if (!state.newSectionTitle.trim()) return;
+    var id = state.newSectionTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + Date.now().toString(36);
+    state.schema.sections = state.schema.sections.concat([{ id: id, title: state.newSectionTitle.trim(), items: [] }]);
+    saveSchema();
+    state.newSectionTitle = '';
+    state.addingSection = false;
+    render();
+  };
+
+  function render() {
+    var app = document.getElementById('app');
+    var t = today();
+    var dk = dateKey(state.currentDate);
+    var de = dayEntry();
+    var isTodaySel = isSameDay(state.currentDate, t);
+    var isCurWeek = isSameDay(startOfWeek(state.currentDate), startOfWeek(t));
+    var isCurMonth = isSameMonth(state.currentDate, t);
+    var nextDisabled = state.viewMode === 'day' ? isTodaySel : state.viewMode === 'week' ? isCurWeek : isCurMonth;
+    var showJump = !nextDisabled;
+
+    var eyebrow = 'Daily Ledger';
+    var title = displayDate(state.currentDate, t);
+    if (state.viewMode === 'week') {
+      var ws = startOfWeek(state.currentDate);
+      var we = addDays(ws, 6);
+      eyebrow = 'Weekly Ledger';
+      title = ws.getMonth() === we.getMonth()
+        ? ws.toLocaleDateString('en-US', { month: 'short' }) + ' ' + ws.getDate() + '–' + we.getDate()
+        : ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' – ' + we.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } else if (state.viewMode === 'month') {
+      eyebrow = 'Monthly Ledger';
+      title = state.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    var html = '<div class="wrap">';
+    html += '<div class="header-row"><div><div class="eyebrow">' + eyebrow + '</div><div class="title">' + esc(title) + '</div></div>';
+    if (state.viewMode === 'day') {
+      html += '<button class="btn-pill ' + (state.editMode ? 'active' : '') + '" onclick="toggleEdit()">' + (state.editMode ? '✓ Done' : '✎ Customize') + '</button>';
+    }
+    html += '</div>';
+
+    html += '<div class="tabs">';
+    ['day', 'week', 'month'].forEach(function (m) {
+      html += '<button class="tab ' + (state.viewMode === m ? 'active' : '') + '" onclick="setViewMode(\'' + m + '\')">' + m + '</button>';
+    });
+    html += '</div>';
+
+    html += '<div class="nav-row">';
+    html += '<button class="nav-btn" onclick="goPrev()">‹</button>';
+    html += '<button class="nav-btn" onclick="goNext()" ' + (nextDisabled ? 'disabled' : '') + '>›</button>';
+    if (showJump) html += '<button class="jump" onclick="jumpToday()">JUMP TO TODAY</button>';
+    html += '</div>';
+
+    if (state.viewMode === 'day') {
+      html += '<div class="strip">';
+      for (var i = 13; i >= 0; i--) {
+        var d = addDays(t, -i);
+        var ratio = completionRatio(d);
+        var sel = dateKey(d) === dk;
+        var h = Math.max(ratio * 100, 8);
+        var bg = sel ? 'var(--amber-bright)' : (ratio > 0 ? 'rgba(198,139,62,0.45)' : 'rgba(143,160,147,0.18)');
+        var border = sel ? '1px solid var(--amber-bright)' : 'none';
+        html += '<button class="strip-bar-btn" onclick="setCurrentDateYMD(' + d.getFullYear() + ',' + d.getMonth() + ',' + d.getDate() + ')" title="' + esc(displayDate(d, t)) + '">' +
+          '<div class="strip-bar" style="height:' + h + '%;background:' + bg + ';border:' + border + ';"></div></button>';
+      }
+      html += '</div>';
+    }
+
+    if (state.error) html += '<div class="error-msg">' + esc(state.error) + '</div>';
+
+    if (state.viewMode === 'day') {
+      state.schema.sections.forEach(function (section) {
+        html += '<div class="section"><div class="section-head"><span>' + esc(section.title) + '</span>';
+        if (state.editMode) html += '<button class="remove-btn" onclick="removeSection(\'' + section.id + '\')">✕</button>';
+        html += '</div><div class="card">';
+        section.items.forEach(function (item) {
+          var val = de[item.id];
+          html += '<div class="item-row"><div style="display:flex;align-items:center;gap:8px;">';
+          if (state.editMode) html += '<button class="remove-btn" onclick="removeItem(\'' + section.id + '\',\'' + item.id + '\')">✕</button>';
+          html += '<span class="item-label">' + esc(item.label) + '</span></div>';
+          if (item.type === 'toggle') {
+            html += '<button class="toggle ' + (val ? 'on' : '') + '" onclick="toggleItem(\'' + item.id + '\')"><div class="thumb"></div></button>';
+          } else {
+            var unit = item.unit ? '<span class="step-unit">' + esc(item.unit) + '</span>' : '';
+            html += '<div class="stepper"><button class="step-btn" onclick="stepNumber(\'' + item.id + '\',-1)">–</button>' +
+              '<div class="step-val">' + (Number(val) || 0) + unit + '</div>' +
+              '<button class="step-btn" onclick="stepNumber(\'' + item.id + '\',1)">+</button></div>';
+          }
+          html += '</div>';
+        });
+        if (state.editMode) {
+          var draft = state.draftItem[section.id] || { label: '', type: 'toggle', unit: '' };
+          html += '<div class="add-form">' +
+            '<input class="input" placeholder="New habit name" value="' + esc(draft.label || '') + '" oninput="updateDraftLabel(\'' + section.id + '\',this.value)" />' +
+            '<div style="display:flex;gap:6px;align-items:center;">' +
+            '<select class="input" style="flex:0 0 110px;" onchange="updateDraftType(\'' + section.id + '\',this.value)">' +
+            '<option value="toggle"' + (draft.type === 'toggle' ? ' selected' : '') + '>Yes / no</option>' +
+            '<option value="number"' + (draft.type === 'number' ? ' selected' : '') + '>Number</option>' +
+            '</select>';
+          if (draft.type === 'number') {
+            html += '<input class="input" placeholder="unit (pages, min…)" value="' + esc(draft.unit || '') + '" oninput="updateDraftUnit(\'' + section.id + '\',this.value)" />';
+          }
+          html += '<button class="add-btn" onclick="addItem(\'' + section.id + '\')">+</button></div></div>';
+        }
+        html += '</div></div>';
+      });
+
+      if (state.editMode) {
+        if (state.addingSection) {
+          html += '<div style="display:flex;gap:6px;"><input class="input" placeholder="Section name" value="' + esc(state.newSectionTitle) + '" oninput="updateNewSectionTitle(this.value)" />' +
+            '<button class="add-btn" onclick="addSection()">+</button></div>';
+        } else {
+          html += '<button class="dashed-btn" onclick="toggleAddingSection()">+ Add section</button>';
+        }
+      }
+    }
+
+    if (state.viewMode === 'week') {
+      var weekDays = [];
+      var wStart = startOfWeek(state.currentDate);
+      for (var wi = 0; wi < 7; wi++) weekDays.push(addDays(wStart, wi));
+
+      html += '<div class="week-header"><div></div>';
+      weekDays.forEach(function (d) {
+        var isT = isSameDay(d, t);
+        html += '<div class="wd ' + (isT ? 'today' : '') + '"><div class="name">' + d.toLocaleDateString('en-US', { weekday: 'narrow' }) + '</div><div class="num">' + d.getDate() + '</div></div>';
+      });
+      html += '<div class="week-sum">Σ</div></div>';
+
+      state.schema.sections.forEach(function (section) {
+        html += '<div class="section"><div class="section-head"><span>' + esc(section.title) + '</span></div><div class="card">';
+        section.items.forEach(function (item) {
+          var weekly = weekDays.map(function (d) { var e = state.entries[dateKey(d)]; return e ? e[item.id] : undefined; });
+          var total = item.type === 'toggle'
+            ? weekly.filter(Boolean).length
+            : weekly.reduce(function (s, v) { return s + (Number(v) || 0); }, 0);
+          html += '<div class="week-row"><div class="week-label">' + esc(item.label) + '</div>';
+          weekDays.forEach(function (d) {
+            var e = state.entries[dateKey(d)];
+            var v = e ? e[item.id] : undefined;
+            var isFuture = d > t;
+            var dk2 = dateKey(d);
+            if (item.type === 'toggle') {
+              html += '<button class="week-cell-btn" ' + (isFuture ? 'disabled' : '') + ' onclick="jumpToDayFromGrid(\'' + dk2 + '\')"><div class="week-dot ' + (v ? 'on' : '') + '"></div></button>';
+            } else {
+              html += '<button class="week-cell-btn" ' + (isFuture ? 'disabled' : '') + ' onclick="jumpToDayFromGrid(\'' + dk2 + '\')"><span class="week-num ' + (Number(v) > 0 ? 'has' : '') + '">' + (Number(v) > 0 ? v : '–') + '</span></button>';
+            }
+          });
+          html += '<div class="week-total">' + total + '</div></div>';
+        });
+        html += '</div></div>';
+      });
+    }
+
+    if (state.viewMode === 'month') {
+      var weeks = monthMatrix(state.currentDate);
+      html += '<div class="month-dow">';
+      ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach(function (l) { html += '<div>' + l + '</div>'; });
+      html += '</div><div class="month-grid">';
+      weeks.forEach(function (week) {
+        week.forEach(function (d) {
+          var ratio = completionRatio(d);
+          var inMonth = isSameMonth(d, state.currentDate);
+          var isT = isSameDay(d, t);
+          var isFuture = d > t;
+          var dk2 = dateKey(d);
+          var bg = ratio > 0 ? 'rgba(198,139,62,' + (0.12 + ratio * 0.55) + ')' : 'transparent';
+          html += '<button class="month-cell ' + (inMonth ? '' : 'dim') + ' ' + (isT ? 'today' : '') + '" style="background:' + bg + ';" ' + (isFuture ? 'disabled' : '') + ' onclick="jumpToDayFromGrid(\'' + dk2 + '\')"><span class="num">' + d.getDate() + '</span></button>';
+        });
+      });
+      html += '</div>';
+    }
+
+    html += '</div>';
+    app.innerHTML = html;
   }
 
-  const isTodaySelected = isSameDay(currentDate, today);
-  const isCurrentWeek = isSameDay(startOfWeek(currentDate), startOfWeek(today));
-  const isCurrentMonth = isSameMonth(currentDate, today);
-
-  function goPrev() {
-    if (viewMode === 'day') goDay(-1);
-    else if (viewMode === 'week') setCurrentDate(addDays(currentDate, -7));
-    else setCurrentDate(addMonths(currentDate, -1));
-  }
-  function goNext() {
-    if (viewMode === 'day') { if (!isTodaySelected) goDay(1); }
-    else if (viewMode === 'week') { if (!isCurrentWeek) setCurrentDate(addDays(currentDate, 7)); }
-    else { if (!isCurrentMonth) setCurrentDate(addMonths(currentDate, 1)); }
-  }
-  const nextDisabled = viewMode === 'day' ? isTodaySelected : viewMode === 'week' ? isCurrentWeek : isCurrentMonth;
-  const showJumpToday = viewMode === 'day' ? !isTodaySelected : viewMode === 'week' ? !isCurrentWeek : !isCurrentMonth;
-
-  let eyebrow = 'Daily Ledger';
-  let title = displayDate(currentDate, today);
-  if (viewMode === 'week') {
-    const ws = startOfWeek(currentDate);
-    const we = addDays(ws, 6);
-    eyebrow = 'Weekly Ledger';
-    title = ws.getMonth() === we.getMonth()
-      ? `${ws.toLocaleDateString('en-US', { month: 'short' })} ${ws.getDate()}–${we.getDate()}`
-      : `${ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${we.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-  } else if (viewMode === 'month') {
-    eyebrow = 'Monthly Ledger';
-    title = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  }
-
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(currentDate), i));
-  const monthWeeks = monthMatrix(currentDate);
-
-  return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', color: COLORS.parchment }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
-        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-        button, input, select { font-family: inherit; }
-        input:focus, select:focus, button:focus-visible { outline: 2px solid ${COLORS.amber}; outline-offset: 2px; }
-        ::selection { background: ${COLORS.amber}; color: ${COLORS.bg}; }
-        @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-      `}</style>
-
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '28px 20px 80px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.18em', color: COLORS.amber, textTransform: 'uppercase', marginBottom: 6 }}>
-              {eyebrow}
-            </div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 27, fontWeight: 600, lineHeight: 1.1 }}>
-              {title}
-            </div>
-          </div>
-          {viewMode === 'day' && (
-            <button
-              onClick={() => setEditMode((v) => !v)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: editMode ? COLORS.amber : 'transparent',
-                color: editMode ? COLORS.bg : COLORS.muted,
-                border: `1px solid ${editMode ? COLORS.amber : COLORS.hairline}`,
-                borderRadius: 999, padding: '7px 12px', fontSize: 12,
-                fontFamily: FONT_UI, fontWeight: 500, cursor: 'pointer', marginTop: 4,
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {editMode ? <Check size={13} /> : <Pencil size={13} />}
-              {editMode ? 'Done' : 'Customize'}
-            </button>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: 4, marginTop: 18, marginBottom: 16, background: 'rgba(143,160,147,0.08)', padding: 3, borderRadius: 12, width: 'fit-content' }}>
-          {['day', 'week', 'month'].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => { setViewMode(mode); setEditMode(false); }}
-              style={{
-                padding: '6px 14px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                background: viewMode === mode ? COLORS.amber : 'transparent',
-                color: viewMode === mode ? COLORS.bg : COLORS.muted,
-                fontFamily: FONT_UI, fontSize: 12.5, fontWeight: 500, textTransform: 'capitalize',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {mode}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <button onClick={goPrev} style={navBtnStyle} aria-label="Previous">
-            <ChevronLeft size={16} color={COLORS.parchment} />
-          </button>
-          <button onClick={goNext} style={navBtnStyle} disabled={nextDisabled} aria-label="Next">
-            <ChevronRight size={16} color={nextDisabled ? COLORS.mutedDark : COLORS.parchment} />
-          </button>
-          {showJumpToday && (
-            <button onClick={() => setCurrentDate(new Date())} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLORS.amber, background: 'transparent', border: 'none', cursor: 'pointer', letterSpacing: '0.05em' }}>
-              JUMP TO TODAY
-            </button>
-          )}
-        </div>
-
-        {viewMode === 'day' && (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 40, marginBottom: 28, borderBottom: `1px solid ${COLORS.hairline}`, paddingBottom: 10 }}>
-            {strip.map((d, i) => {
-              const ratio = completionRatio(d);
-              const isSelected = dateKey(d) === dayKey;
-              return (
-                <button
-                  key={i}
-                  onClick={() => setCurrentDate(d)}
-                  title={displayDate(d, today)}
-                  style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
-                >
-                  <div style={{
-                    width: '100%',
-                    height: `${Math.max(ratio * 100, 8)}%`,
-                    background: isSelected ? COLORS.amberBright : ratio > 0 ? 'rgba(198,139,62,0.45)' : 'rgba(143,160,147,0.18)',
-                    borderRadius: 2,
-                    border: isSelected ? `1px solid ${COLORS.amberBright}` : 'none',
-                    transition: 'all 0.2s ease',
-                  }} />
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {error && (
-          <div style={{ fontFamily: FONT_UI, fontSize: 12, color: COLORS.rust, marginBottom: 16 }}>{error}</div>
-        )}
-
-        {viewMode === 'day' && schema.sections.map((section) => (
-          <div key={section.id} style={{ marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingLeft: 2 }}>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.14em', color: COLORS.muted, textTransform: 'uppercase' }}>
-                {section.title}
-              </div>
-              {editMode && (
-                <button onClick={() => removeSection(section.id)} style={{ background: 'none', border: 'none', color: COLORS.rust, cursor: 'pointer', display: 'flex', alignItems: 'center' }} aria-label={`Remove ${section.title} section`}>
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-
-            <div style={{ background: COLORS.bgCard, borderRadius: 16, border: `1px solid ${COLORS.hairline}`, overflow: 'hidden' }}>
-              {section.items.map((item, idx) => (
-                <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: idx < section.items.length - 1 ? `1px solid ${COLORS.hairline}` : 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {editMode && (
-                      <button onClick={() => removeItem(section.id, item.id)} style={{ background: 'none', border: 'none', color: COLORS.rust, cursor: 'pointer', padding: 0, display: 'flex' }} aria-label={`Remove ${item.label}`}>
-                        <X size={13} />
-                      </button>
-                    )}
-                    <span style={{ fontFamily: FONT_UI, fontSize: 14.5, fontWeight: 500 }}>{item.label}</span>
-                  </div>
-
-                  {item.type === 'toggle' ? (
-                    <button
-                      onClick={() => toggleItem(item.id)}
-                      aria-pressed={!!dayEntry[item.id]}
-                      style={{
-                        width: 46, height: 26, borderRadius: 999, position: 'relative',
-                        background: dayEntry[item.id] ? COLORS.amber : 'rgba(143,160,147,0.18)',
-                        border: `1px solid ${dayEntry[item.id] ? COLORS.amberBright : COLORS.hairline}`,
-                        cursor: 'pointer', transition: 'background 0.15s ease', flexShrink: 0,
-                      }}
-                    >
-                      <div style={{
-                        width: 18, height: 18, borderRadius: '50%',
-                        background: dayEntry[item.id] ? COLORS.bg : COLORS.parchment,
-                        position: 'absolute', top: 3,
-                        left: dayEntry[item.id] ? 24 : 3,
-                        transition: 'left 0.15s ease',
-                      }} />
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <button onClick={() => stepNumber(item.id, -1)} style={stepBtnStyle} aria-label={`Decrease ${item.label}`}>–</button>
-                      <div style={{ fontFamily: FONT_MONO, fontSize: 15, minWidth: 40, textAlign: 'center' }}>
-                        {Number(dayEntry[item.id]) || 0}
-                        {item.unit && <span style={{ fontSize: 10, color: COLORS.muted, marginLeft: 3 }}>{item.unit}</span>}
-                      </div>
-                      <button onClick={() => stepNumber(item.id, 1)} style={stepBtnStyle} aria-label={`Increase ${item.label}`}>+</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {editMode && (
-                <div style={{ padding: '12px 16px', borderTop: section.items.length ? `1px solid ${COLORS.hairline}` : 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <input
-                    placeholder="New habit name"
-                    value={draftItem[section.id]?.label || ''}
-                    onChange={(e) => setDraftItem((d) => ({ ...d, [section.id]: { ...(d[section.id] || { type: 'toggle' }), label: e.target.value } }))}
-                    style={inputStyle}
-                  />
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <select
-                      value={draftItem[section.id]?.type || 'toggle'}
-                      onChange={(e) => setDraftItem((d) => ({ ...d, [section.id]: { ...(d[section.id] || { label: '' }), type: e.target.value } }))}
-                      style={{ ...inputStyle, flex: '0 0 110px' }}
-                    >
-                      <option value="toggle">Yes / no</option>
-                      <option value="number">Number</option>
-                    </select>
-                    {draftItem[section.id]?.type === 'number' && (
-                      <input
-                        placeholder="unit (pages, min…)"
-                        value={draftItem[section.id]?.unit || ''}
-                        onChange={(e) => setDraftItem((d) => ({ ...d, [section.id]: { ...(d[section.id] || {}), unit: e.target.value } }))}
-                        style={inputStyle}
-                      />
-                    )}
-                    <button onClick={() => addItem(section.id)} style={addBtnStyle} aria-label="Add habit">
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {viewMode === 'day' && editMode && (
-          <div style={{ marginTop: 8 }}>
-            {addingSection ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input
-                  autoFocus
-                  placeholder="Section name"
-                  value={newSectionTitle}
-                  onChange={(e) => setNewSectionTitle(e.target.value)}
-                  style={inputStyle}
-                />
-                <button onClick={addSection} style={addBtnStyle} aria-label="Add section"><Plus size={14} /></button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAddingSection(true)}
-                style={{ width: '100%', padding: '12px', borderRadius: 14, border: `1px dashed ${COLORS.hairlineStrong}`, background: 'transparent', color: COLORS.muted, fontFamily: FONT_UI, fontSize: 13, cursor: 'pointer' }}
-              >
-                + Add section
-              </button>
-            )}
-          </div>
-        )}
-
-        {viewMode === 'week' && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(7,1fr) 30px', gap: 4, marginBottom: 10, paddingLeft: 2 }}>
-              <div />
-              {weekDays.map((d, i) => {
-                const isToday = isSameDay(d, today);
-                return (
-                  <div key={i} style={{ textAlign: 'center' }}>
-                    <div style={{ fontFamily: FONT_MONO, fontSize: 9, color: isToday ? COLORS.amber : COLORS.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {d.toLocaleDateString('en-US', { weekday: 'narrow' })}
-                    </div>
-                    <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: isToday ? COLORS.amberBright : COLORS.parchment, fontWeight: isToday ? 600 : 400 }}>
-                      {d.getDate()}
-                    </div>
-                  </div>
-                );
-              })}
-              <div style={{ textAlign: 'center', fontFamily: FONT_MONO, fontSize: 9, color: COLORS.muted }}>Σ</div>
-            </div>
-
-            {schema.sections.map((section) => (
-              <div key={section.id} style={{ marginBottom: 20 }}>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.14em', color: COLORS.muted, textTransform: 'uppercase', marginBottom: 8, paddingLeft: 2 }}>
-                  {section.title}
-                </div>
-                <div style={{ background: COLORS.bgCard, borderRadius: 16, border: `1px solid ${COLORS.hairline}`, overflow: 'hidden' }}>
-                  {section.items.map((item, idx) => {
-                    const weekly = weekDays.map((d) => entries[dateKey(d)]?.[item.id]);
-                    const total = item.type === 'toggle'
-                      ? weekly.filter(Boolean).length
-                      : weekly.reduce((sum, v) => sum + (Number(v) || 0), 0);
-                    return (
-                      <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '58px repeat(7,1fr) 30px', alignItems: 'center', gap: 4, padding: '10px 12px', borderBottom: idx < section.items.length - 1 ? `1px solid ${COLORS.hairline}` : 'none' }}>
-                        <div style={{ fontFamily: FONT_UI, fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</div>
-                        {weekDays.map((d, di) => {
-                          const v = entries[dateKey(d)]?.[item.id];
-                          const isFuture = d > today;
-                          return (
-                            <button
-                              key={di}
-                              onClick={() => { if (!isFuture) { setCurrentDate(d); setViewMode('day'); } }}
-                              disabled={isFuture}
-                              style={{ background: 'transparent', border: 'none', cursor: isFuture ? 'default' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 4 }}
-                            >
-                              {item.type === 'toggle' ? (
-                                <div style={{ width: 9, height: 9, borderRadius: '50%', background: v ? COLORS.amber : 'transparent', border: `1.4px solid ${v ? COLORS.amber : COLORS.hairlineStrong}` }} />
-                              ) : (
-                                <span style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: Number(v) > 0 ? COLORS.parchment : COLORS.mutedDark }}>{Number(v) > 0 ? v : '–'}</span>
-                              )}
-                            </button>
-                          );
-                        })}
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 11, textAlign: 'center', color: COLORS.amber }}>{total}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-
-        {viewMode === 'month' && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 6 }}>
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((l, i) => (
-                <div key={i} style={{ textAlign: 'center', fontFamily: FONT_MONO, fontSize: 10, color: COLORS.muted, letterSpacing: '0.05em' }}>{l}</div>
-              ))}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
-              {monthWeeks.flatMap((week, wi) => week.map((d, di) => {
-                const ratio = completionRatio(d);
-                const inMonth = isSameMonth(d, currentDate);
-                const isToday = isSameDay(d, today);
-                const isFuture = d > today;
-                return (
-                  <button
-                    key={`${wi}-${di}`}
-                    onClick={() => { if (!isFuture) { setCurrentDate(d); setViewMode('day'); } }}
-                    disabled={isFuture}
-                    style={{
-                      aspectRatio: '1', borderRadius: 9,
-                      border: isToday ? `1.5px solid ${COLORS.amberBright}` : `1px solid ${COLORS.hairline}`,
-                      background: ratio > 0 ? `rgba(198,139,62,${0.12 + ratio * 0.55})` : 'transparent',
-                      opacity: inMonth ? 1 : 0.35,
-                      cursor: isFuture ? 'default' : 'pointer',
-                      display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', padding: 5,
-                    }}
-                  >
-                    <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: inMonth ? COLORS.parchment : COLORS.mutedDark }}>{d.getDate()}</span>
-                  </button>
-                );
-              }))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+  render();
+})();
+</script>
+</body>
+</html>
